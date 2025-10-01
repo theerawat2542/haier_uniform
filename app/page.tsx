@@ -1,103 +1,387 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useState } from "react";
+import Navbar from "./components/Navbar/Navbar";
+import {
+  Input,
+  Button,
+  Select,
+  InputNumber,
+  Card,
+  Divider,
+  Space,
+  Typography,
+} from "antd";
+
+const { Option } = Select;
+const { Title, Text } = Typography;
+
+interface Uniform {
+  item_id: number;
+  item_name: string;
+  category: string;
+  size_id: number;
+  size: string;
+  stock: number;
+  quantity?: number;
+}
+
+const Page: React.FC = () => {
+  const [workId, setWorkId] = useState("");
+  const [employee, setEmployee] = useState<any[]>([]);
+  const [uniforms, setUniforms] = useState<Uniform[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedUniforms, setSelectedUniforms] = useState<
+    { uniform_id: number; size_id: number; quantity: number }[]
+  >([]);
+  const [selectedSize, setSelectedSize] = useState<{ [key: number]: number }>(
+    {}
+  );
+
+  const handleSearch = async () => {
+    setLoading(true);
+    setEmployee([]);
+    setUniforms([]);
+    setSelectedUniforms([]);
+    setSelectedSize({});
+
+    try {
+      const res = await fetch("/api/searchEmp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert("ไม่พบพนักงานในฐานข้อมูล ❌");
+        return;
+      }
+      setEmployee([data.data]);
+
+      const resUniforms = await fetch("/api/getUniforms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const uniformData = await resUniforms.json();
+      if (resUniforms.ok) {
+        setUniforms(uniformData.data);
+      } else {
+        alert("ไม่พบยูนิฟอร์ม ❌");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ ❌");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectUniform = (
+    uniform_id: number,
+    size_id: number,
+    quantity: number
+  ) => {
+    setSelectedUniforms((prev) => {
+      // ถ้า quantity = 0 หรือ size_id = 0 ให้ลบ entry ออก
+      if (quantity === 0 || size_id === 0) {
+        return prev.filter(
+          (u) => !(u.uniform_id === uniform_id && u.size_id === size_id)
+        );
+      }
+
+      const exist = prev.find(
+        (u) => u.uniform_id === uniform_id && u.size_id === size_id
+      );
+      if (exist) {
+        return prev.map((u) =>
+          u.uniform_id === uniform_id && u.size_id === size_id
+            ? { ...u, quantity }
+            : u
+        );
+      } else {
+        return [...prev, { uniform_id, size_id, quantity }];
+      }
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (!employee[0]) {
+      alert("กรุณาค้นหาพนักงานก่อน ⚠️");
+      return;
+    }
+
+    if (!selectedUniforms || selectedUniforms.length === 0) {
+      alert("กรุณาเลือกยูนิฟอร์มก่อน ⚠️");
+      return;
+    }
+
+    const totalSelected = selectedUniforms.reduce(
+      (sum: number, u) => sum + (u.quantity || 0),
+      0
+    );
+
+    if (totalSelected > 4) {
+      alert("ไม่สามารถเบิกเกิน 4 ชิ้นได้ ⚠️");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/requisitionUniform", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          htcpersonid: employee[0].htcpersonid,
+          uniforms: selectedUniforms,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert("บันทึกการเบิกสำเร็จ ✅");
+        setSelectedUniforms([]);
+        setSelectedSize({});
+        handleSearch();
+      } else {
+        alert("บันทึกไม่สำเร็จ ❌");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว ❌");
+    }
+  };
+
+  const groupedByCategory = uniforms.reduce((acc: any, u) => {
+    if (!acc[u.category]) acc[u.category] = {};
+    if (!acc[u.category][u.item_name]) acc[u.category][u.item_name] = [];
+    acc[u.category][u.item_name].push(u);
+    return acc;
+  }, {});
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div style={{ background: "#f0f2f5", minHeight: "100vh", flexDirection: "column", }}>
+      <Navbar />
+      <div style={{ maxWidth: 900, margin: "20px auto", padding: "0 16px" }}>
+        <Title
+          level={2}
+          style={{
+            textAlign: "center",
+            marginBottom: 30,
+            color: "#1890ff",
+            textShadow: "1px 1px 2px rgba(0,0,0,0.2)",
+          }}
+        >
+          เบิกชุด Uniforms พนักงาน
+        </Title>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+        {/* Search Section */}
+        <Card
+          style={{
+            marginBottom: 20,
+            borderRadius: 16,
+            background: "rgba(255,255,255,0.1)",
+            backdropFilter: "blur(10px)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
+          }}
+        >
+          <Space size="middle">
+            <Input
+              value={workId}
+              onChange={(e) => setWorkId(e.target.value)}
+              placeholder="กรอกรหัสพนักงาน"
+              style={{ width: 220, borderRadius: 8 }}
+              onPressEnter={handleSearch}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <Button
+              type="primary"
+              onClick={handleSearch}
+              loading={loading}
+              style={{ borderRadius: 8 }}
+            >
+              ค้นหา
+            </Button>
+            <Button
+              danger
+              onClick={() => {
+                setWorkId("");
+                setEmployee([]);
+                setUniforms([]);
+                setSelectedUniforms([]);
+                setSelectedSize({});
+              }}
+              style={{ borderRadius: 8 }}
+            >
+              ล้าง
+            </Button>
+          </Space>
+        </Card>
+
+        {/* Employee Info */}
+        {employee.length > 0 && (
+          <Card
+            style={{
+              marginBottom: 20,
+              borderRadius: 16,
+              background: "rgba(255,255,255,0.08)",
+              backdropFilter: "blur(8px)",
+            }}
           >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+            <Title level={4} style={{ color: "#0050b3" }}>
+              ข้อมูลพนักงาน
+            </Title>
+            <Divider />
+            <Text strong>รหัส: </Text>
+            <Text>{employee[0].htcpersonid}</Text>
+            <br />
+            <Text strong>ชื่อ: </Text>
+            <Text>{employee[0].personname}</Text>
+            <br />
+            <Text strong>กลุ่ม: </Text>
+            <Text>{employee[0].persongroup}</Text>
+          </Card>
+        )}
+
+        {/* Uniform Selection */}
+        {Object.keys(groupedByCategory).length > 0 && (
+          <Card
+            style={{
+              borderRadius: 16,
+              background: "rgba(255,255,255,0.1)",
+              backdropFilter: "blur(10px)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
+            }}
+          >
+            <Title level={4} style={{ color: "#0050b3" }}>
+              เลือกยูนิฟอร์ม
+            </Title>
+            <Divider />
+
+            {Object.keys(groupedByCategory).map((category) => (
+              <div key={category} style={{ marginBottom: 24 }}>
+                <Title
+                  level={5}
+                  style={{ marginBottom: 12, color: "#1890ff" }}
+                >
+                  {category}
+                </Title>
+
+                {Object.keys(groupedByCategory[category]).map((item_name) => {
+                  const uniform_id =
+                    groupedByCategory[category][item_name][0].item_id;
+
+                  return (
+                    <Card
+                      key={item_name}
+                      type="inner"
+                      title={item_name}
+                      style={{
+                        marginBottom: 16,
+                        borderRadius: 12,
+                        border: "1px solid rgba(0,0,0,0.1)",
+                        background: "rgba(255,255,255,0.05)",
+                      }}
+                    >
+                      <Space size="middle">
+                        <Select
+                          placeholder="เลือกไซส์"
+                          style={{ width: 180, borderRadius: 8 }}
+                          value={selectedSize[uniform_id] ?? undefined}
+                          onChange={(size_id: number | null) => {
+                            if (!size_id) {
+                              // Clear select
+                              setSelectedSize((prev) => {
+                                const copy = { ...prev };
+                                delete copy[uniform_id];
+                                return copy;
+                              });
+                              setSelectedUniforms((prev) =>
+                                prev.filter((u) => u.uniform_id !== uniform_id)
+                              );
+                            } else {
+                              setSelectedSize((prev) => ({
+                                ...prev,
+                                [uniform_id]: size_id,
+                              }));
+                              handleSelectUniform(uniform_id, size_id, 0);
+                            }
+                          }}
+                          allowClear
+                        >
+                          {groupedByCategory[category][item_name].map(
+                            (u: Uniform) => (
+                              <Option
+                                key={u.size_id}
+                                value={u.size_id}
+                                disabled={u.stock === 0}
+                              >
+                                <b>{u.size}</b> - (stock: {u.stock})
+                              </Option>
+                            )
+                          )}
+                        </Select>
+
+                        <InputNumber
+                          min={0}
+                          max={
+                            groupedByCategory[category][item_name].find(
+                              (u: Uniform) =>
+                                u.size_id === selectedSize[uniform_id]
+                            )?.stock || 0
+                          }
+                          placeholder="Quantity"
+                          value={
+                            selectedSize[uniform_id]
+                              ? selectedUniforms.find(
+                                  (u) =>
+                                    u.uniform_id === uniform_id &&
+                                    u.size_id === selectedSize[uniform_id]
+                                )?.quantity
+                              : undefined
+                          }
+                          onChange={(val: number | null) => {
+                            if (!selectedSize[uniform_id] || val === null || val <= 0) {
+                              // Clear quantity
+                              setSelectedUniforms((prev) =>
+                                prev.filter(
+                                  (u) => u.uniform_id !== uniform_id
+                                )
+                              );
+                            } else {
+                              handleSelectUniform(
+                                uniform_id,
+                                selectedSize[uniform_id],
+                                val
+                              );
+                            }
+                          }}
+                          style={{ borderRadius: 8 }}
+                        />
+                      </Space>
+                    </Card>
+                  );
+                })}
+              </div>
+            ))}
+
+            <div style={{ textAlign: "center", marginTop: 20 }}>
+              <Button
+                type="primary"
+                size="large"
+                onClick={handleSubmit}
+                style={{
+                  borderRadius: 12,
+                  padding: "0 30px",
+                  fontSize: 16,
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                }}
+              >
+                บันทึกการเบิก
+              </Button>
+            </div>
+          </Card>
+        )}
+      </div>
     </div>
   );
-}
+};
+
+export default Page;
