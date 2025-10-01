@@ -70,7 +70,7 @@ const Page: React.FC = () => {
       }
     } catch (err) {
       console.error(err);
-      alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ ❌");
+      alert("ไม่พบพนักงานในฐานข้อมูล ❌");
     } finally {
       setLoading(false);
     }
@@ -126,6 +126,31 @@ const Page: React.FC = () => {
     }
 
     try {
+      // ✅ เช็คจำนวนเบิกวันนี้ก่อน
+      const checkRes = await fetch("/api/checkTodayRequisition", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ htcpersonid: employee[0].htcpersonid }),
+      });
+
+      const checkData = await checkRes.json();
+
+      if (!checkRes.ok) {
+        alert(checkData.error || "ตรวจสอบยอดเบิกวันนี้ล้มเหลว ❌");
+        return;
+      }
+
+      if (checkData.total >= 4) {
+        alert(`พนักงาน ${employee[0].htcpersonid} เบิกครบ 4 ชิ้นแล้ววันนี้ ⚠️`);
+        return;
+      }
+
+      if (totalSelected + checkData.total > 4) {
+        alert(`เบิกเกิน 4 ชิ้นวันนี้ ❌ (เบิกไปแล้ว ${checkData.total} ชิ้น)`);
+        return;
+      }
+
+      // ✅ ทำการเบิกตามปกติ
       const res = await fetch("/api/requisitionUniform", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -158,7 +183,13 @@ const Page: React.FC = () => {
   }, {});
 
   return (
-    <div style={{ background: "#f0f2f5", minHeight: "100vh", flexDirection: "column", }}>
+    <div
+      style={{
+        background: "#f0f2f5",
+        minHeight: "100vh",
+        flexDirection: "column",
+      }}
+    >
       <Navbar />
       <div style={{ maxWidth: 900, margin: "20px auto", padding: "0 16px" }}>
         <Title
@@ -178,41 +209,43 @@ const Page: React.FC = () => {
           style={{
             marginBottom: 20,
             borderRadius: 16,
-            background: "rgba(255,255,255,0.1)",
             backdropFilter: "blur(10px)",
             boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
           }}
         >
-          <Space size="middle">
-            <Input
-              value={workId}
-              onChange={(e) => setWorkId(e.target.value)}
-              placeholder="กรอกรหัสพนักงาน"
-              style={{ width: 220, borderRadius: 8 }}
-              onPressEnter={handleSearch}
-            />
-            <Button
-              type="primary"
-              onClick={handleSearch}
-              loading={loading}
-              style={{ borderRadius: 8 }}
-            >
-              ค้นหา
-            </Button>
-            <Button
-              danger
-              onClick={() => {
-                setWorkId("");
-                setEmployee([]);
-                setUniforms([]);
-                setSelectedUniforms([]);
-                setSelectedSize({});
-              }}
-              style={{ borderRadius: 8 }}
-            >
-              ล้าง
-            </Button>
-          </Space>
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <Space size="middle">
+              <span style={{ fontWeight: 500 }}>Work ID:</span>
+              <Input
+                value={workId}
+                onChange={(e) => setWorkId(e.target.value)}
+                placeholder="กรอกรหัสพนักงาน"
+                style={{ width: 220, borderRadius: 8 }}
+                onPressEnter={handleSearch}
+              />
+              <Button
+                type="primary"
+                onClick={handleSearch}
+                loading={loading}
+                style={{ borderRadius: 8 }}
+              >
+                ค้นหา
+              </Button>
+              <Button
+                danger
+                onClick={() => {
+                  setWorkId("");
+                  setEmployee([]);
+                  setUniforms([]);
+                  setSelectedUniforms([]);
+                  setSelectedSize({});
+                }}
+                style={{ borderRadius: 8 }}
+              >
+                ล้าง
+              </Button>
+            </Space>
+          </div>
         </Card>
 
         {/* Employee Info */}
@@ -221,7 +254,6 @@ const Page: React.FC = () => {
             style={{
               marginBottom: 20,
               borderRadius: 16,
-              background: "rgba(255,255,255,0.08)",
               backdropFilter: "blur(8px)",
             }}
           >
@@ -244,8 +276,6 @@ const Page: React.FC = () => {
         {Object.keys(groupedByCategory).length > 0 && (
           <Card
             style={{
-              borderRadius: 16,
-              background: "rgba(255,255,255,0.1)",
               backdropFilter: "blur(10px)",
               boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
             }}
@@ -257,10 +287,7 @@ const Page: React.FC = () => {
 
             {Object.keys(groupedByCategory).map((category) => (
               <div key={category} style={{ marginBottom: 24 }}>
-                <Title
-                  level={5}
-                  style={{ marginBottom: 12, color: "#1890ff" }}
-                >
+                <Title level={5} style={{ marginBottom: 12, color: "#1890ff" }}>
                   {category}
                 </Title>
 
@@ -338,12 +365,14 @@ const Page: React.FC = () => {
                               : undefined
                           }
                           onChange={(val: number | null) => {
-                            if (!selectedSize[uniform_id] || val === null || val <= 0) {
+                            if (
+                              !selectedSize[uniform_id] ||
+                              val === null ||
+                              val <= 0
+                            ) {
                               // Clear quantity
                               setSelectedUniforms((prev) =>
-                                prev.filter(
-                                  (u) => u.uniform_id !== uniform_id
-                                )
+                                prev.filter((u) => u.uniform_id !== uniform_id)
                               );
                             } else {
                               handleSelectUniform(

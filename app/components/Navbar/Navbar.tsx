@@ -33,7 +33,7 @@ const Navbar: React.FC = () => {
           onClick={() => router.push("/")}
         >
           <HomeOutlined />
-          เบิกยูนิฟอร์ม
+          เบิก Uniform
         </button>
 
         {/* รายงาน */}

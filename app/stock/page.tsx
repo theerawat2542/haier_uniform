@@ -2,8 +2,19 @@
 
 import React, { useEffect, useState } from "react";
 import Navbar from "../components/Navbar/Navbar";
-import { Table, Button, Card, Typography, InputNumber, message, Select, Space } from "antd";
+import {
+  Table,
+  Button,
+  Card,
+  Typography,
+  InputNumber,
+  message,
+  Select,
+  Space,
+} from "antd";
 import type { ColumnsType } from "antd/es/table";
+import StockSummaryModal from "../components/StockSummaryModal";
+import ExportStockButton from "../components/ExportStockButton"; // ✅ import ปุ่มดาวน์โหลด
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -25,6 +36,7 @@ const StockPage: React.FC = () => {
   const [items, setItems] = useState<ItemData[]>([]);
   const [selectedItem, setSelectedItem] = useState<ItemData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [summaryVisible, setSummaryVisible] = useState(false);
 
   // ดึงรายการยูนิฟอร์ม + ไซส์
   const fetchItems = async () => {
@@ -50,9 +62,13 @@ const StockPage: React.FC = () => {
   const handleBatchAdjust = async () => {
     if (!selectedItem) return;
 
-    const adjustments: { size_id: number; adjustment: number }[] = selectedItem.sizes
-      .filter((s: SizeData) => s.adjustment && s.adjustment !== 0)
-      .map((s: SizeData) => ({ size_id: s.size_id, adjustment: s.adjustment! }));
+    const adjustments: { size_id: number; adjustment: number }[] =
+      selectedItem.sizes
+        .filter((s: SizeData) => s.adjustment && s.adjustment !== 0)
+        .map((s: SizeData) => ({
+          size_id: s.size_id,
+          adjustment: s.adjustment!,
+        }));
 
     if (!adjustments.length) {
       alert("กรุณาระบุจำนวนปรับ Stock อย่างน้อยหนึ่งไซส์");
@@ -68,7 +84,7 @@ const StockPage: React.FC = () => {
       const result = await res.json();
 
       if (result.ok) {
-        alert("ปรับ Stock เรียบร้อยแล้ว");
+        alert("ปรับ Stock เรียบร้อยแล้ว ✅");
 
         // ดึงข้อมูลใหม่ของยูนิฟอร์มทั้งหมด
         const resItems = await fetch("/api/stock/items");
@@ -77,26 +93,36 @@ const StockPage: React.FC = () => {
           setItems(dataItems.data);
 
           // ตั้ง selectedItem ใหม่จากข้อมูลที่รีเฟรชแล้ว
-          const updatedItem = dataItems.data.find((i: ItemData) => i.item_id === selectedItem.item_id);
+          const updatedItem = dataItems.data.find(
+            (i: ItemData) => i.item_id === selectedItem.item_id
+          );
           if (updatedItem) {
             setSelectedItem({
               ...updatedItem,
-              sizes: updatedItem.sizes.map((s: SizeData) => ({ ...s, adjustment: 0 })), // รีเซ็ต adjustment
+              sizes: updatedItem.sizes.map((s: SizeData) => ({
+                ...s,
+                adjustment: 0,
+              })),
             });
           }
         }
       } else {
-        alert(result.error || "เกิดข้อผิดพลาด");
+        alert(result.error || "เกิดข้อผิดพลาด ❌");
       }
     } catch (err) {
       console.error(err);
-      alert("เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว");
+      alert("เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว ❌");
     }
   };
 
   const columns: ColumnsType<SizeData> = [
     { title: "ไซส์", dataIndex: "size", key: "size", width: 120 },
-    { title: "Stock ปัจจุบัน", dataIndex: "stock", key: "stock", width: 150 },
+    {
+      title: "Stock ปัจจุบัน",
+      dataIndex: "stock",
+      key: "stock",
+      width: 150,
+    },
     {
       title: "ปรับ Stock",
       dataIndex: "adjustment",
@@ -110,7 +136,9 @@ const StockPage: React.FC = () => {
           onChange={(value) => {
             if (!selectedItem) return;
             const newSizes = selectedItem.sizes.map((s: SizeData) =>
-              s.size_id === record.size_id ? { ...s, adjustment: value ?? 0 } : s
+              s.size_id === record.size_id
+                ? { ...s, adjustment: value ?? 0 }
+                : s
             );
             setSelectedItem({ ...selectedItem, sizes: newSizes });
           }}
@@ -130,7 +158,14 @@ const StockPage: React.FC = () => {
       }}
     >
       <Navbar />
-      <div style={{ maxWidth: 1200, margin: "20px auto", padding: "0 16px", flex: 1 }}>
+      <div
+        style={{
+          maxWidth: 1200,
+          margin: "20px auto",
+          padding: "0 16px",
+          flex: 1,
+        }}
+      >
         <Title
           level={2}
           style={{
@@ -140,7 +175,7 @@ const StockPage: React.FC = () => {
             textShadow: "1px 1px 2px rgba(0,0,0,0.15)",
           }}
         >
-          ปรับ Stock ยูนิฟอร์ม
+          ปรับ Uniform Stock
         </Title>
 
         <Card
@@ -162,7 +197,10 @@ const StockPage: React.FC = () => {
                 if (item) {
                   const resetItem = {
                     ...item,
-                    sizes: item.sizes.map((s: SizeData) => ({ ...s, adjustment: 0 })),
+                    sizes: item.sizes.map((s: SizeData) => ({
+                      ...s,
+                      adjustment: 0,
+                    })),
                   };
                   setSelectedItem(resetItem);
                 } else {
@@ -183,11 +221,19 @@ const StockPage: React.FC = () => {
               onClick={handleBatchAdjust}
               disabled={
                 !selectedItem ||
-                !selectedItem.sizes.some((s) => s.adjustment && s.adjustment !== 0)
+                !selectedItem.sizes.some(
+                  (s) => s.adjustment && s.adjustment !== 0
+                )
               }
             >
               ปรับ Stock
             </Button>
+
+            <Button onClick={() => setSummaryVisible(true)}>
+              Stock คงเหลือทั้งหมด
+            </Button>
+
+            <ExportStockButton items={items} />
           </Space>
         </Card>
 
@@ -201,7 +247,10 @@ const StockPage: React.FC = () => {
           >
             <Table
               columns={columns}
-              dataSource={selectedItem.sizes.map((s: SizeData) => ({ ...s, key: s.size_id }))}
+              dataSource={selectedItem.sizes.map((s: SizeData) => ({
+                ...s,
+                key: s.size_id,
+              }))}
               loading={loading}
               bordered
               pagination={false}
@@ -211,6 +260,13 @@ const StockPage: React.FC = () => {
           </Card>
         )}
       </div>
+
+      {/* Modal แสดงสรุป Stock */}
+      <StockSummaryModal
+        visible={summaryVisible}
+        onClose={() => setSummaryVisible(false)}
+        items={items}
+      />
     </div>
   );
 };

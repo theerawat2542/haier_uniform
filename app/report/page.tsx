@@ -16,7 +16,11 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import * as XLSX from "xlsx";
-import { FileExcelOutlined, SearchOutlined, ReloadOutlined } from "@ant-design/icons";
+import {
+  FileExcelOutlined,
+  SearchOutlined,
+  ReloadOutlined,
+} from "@ant-design/icons";
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -78,13 +82,13 @@ const ReportPage: React.FC = () => {
 
     const worksheet = XLSX.utils.json_to_sheet(
       data.map((row) => ({
-        "รหัสพนักงาน": row.htcpersonid,
-        "ชื่อ": row.personname,
-        "กลุ่ม": row.persongroup,
-        "ยูนิฟอร์ม": row.item_name,
-        "ไซส์": row.size,
-        "จำนวน": row.quantity,
-        "วันที่เบิก": dayjs(row.created_at).format("YYYY-MM-DD HH:mm:ss"),
+        รหัสพนักงาน: row.htcpersonid,
+        ชื่อ: row.personname,
+        กลุ่ม: row.persongroup,
+        ยูนิฟอร์ม: row.item_name,
+        ไซส์: row.size,
+        จำนวน: row.quantity,
+        วันที่เบิก: dayjs(row.created_at).format("YYYY-MM-DD HH:mm:ss"),
       }))
     );
     const workbook = XLSX.utils.book_new();
@@ -99,7 +103,12 @@ const ReportPage: React.FC = () => {
       dataIndex: "htcpersonid",
       key: "htcpersonid",
       width: 140,
-      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+      filterDropdown: ({
+        setSelectedKeys,
+        selectedKeys,
+        confirm,
+        clearFilters,
+      }) => (
         <div style={{ padding: 8 }}>
           <Input
             placeholder="ค้นหารหัส"
@@ -133,11 +142,23 @@ const ReportPage: React.FC = () => {
         <SearchOutlined style={{ color: filtered ? "#1890ff" : undefined }} />
       ),
       onFilter: (value, record) =>
-        record.htcpersonid.toLowerCase().includes((value as string).toLowerCase()),
+        record.htcpersonid
+          .toLowerCase()
+          .includes((value as string).toLowerCase()),
     },
     { title: "ชื่อ", dataIndex: "personname", key: "personname", width: 160 },
-    { title: "กลุ่ม", dataIndex: "persongroup", key: "persongroup", width: 160 },
-    { title: "ยูนิฟอร์ม", dataIndex: "item_name", key: "item_name", width: 220 },
+    {
+      title: "กลุ่ม",
+      dataIndex: "persongroup",
+      key: "persongroup",
+      width: 160,
+    },
+    {
+      title: "ยูนิฟอร์ม",
+      dataIndex: "item_name",
+      key: "item_name",
+      width: 220,
+    },
     { title: "ไซส์", dataIndex: "size", key: "size", width: 100 },
     { title: "จำนวน", dataIndex: "quantity", key: "quantity", width: 100 },
     {
@@ -150,7 +171,14 @@ const ReportPage: React.FC = () => {
   ];
 
   return (
-    <div style={{ background: "#f0f2f5", minHeight: "100vh", display: "flex", flexDirection: "column", }}>
+    <div
+      style={{
+        background: "#f0f2f5",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       <Navbar />
       <div style={{ maxWidth: 1200, margin: "20px auto", padding: "0 16px" }}>
         <Title
@@ -162,7 +190,7 @@ const ReportPage: React.FC = () => {
             textShadow: "1px 1px 2px rgba(0,0,0,0.15)",
           }}
         >
-          รายงานการเบิกยูนิฟอร์ม
+          รายงานการเบิก Uniform
         </Title>
 
         {/* Filter Card */}
@@ -172,10 +200,15 @@ const ReportPage: React.FC = () => {
             borderRadius: 16,
             boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
             background: "#ffffff",
+            display: "flex",
+            justifyContent: "center",
           }}
         >
           <Space size="middle" wrap>
-            <RangePicker onChange={(values) => setDates(values as [any, any])} />
+            <span style={{ fontWeight: 500 }}>เลือกช่วงวันที่:</span>
+            <RangePicker
+              onChange={(values) => setDates(values as [any, any])}
+            />
             <Button type="primary" onClick={handleSearch} loading={loading}>
               ค้นหา
             </Button>
