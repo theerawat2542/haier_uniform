@@ -14,7 +14,8 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import StockSummaryModal from "../components/StockSummaryModal";
-import ExportStockButton from "../components/ExportStockButton"; // ✅ import ปุ่มดาวน์โหลด
+import ExportStockButton from "../components/ExportStockButton";
+import toast from "react-hot-toast";
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -71,7 +72,7 @@ const StockPage: React.FC = () => {
         }));
 
     if (!adjustments.length) {
-      alert("กรุณาระบุจำนวนปรับ Stock อย่างน้อยหนึ่งไซส์");
+      toast.error("กรุณาระบุจำนวนปรับ Stock อย่างน้อยหนึ่งไซส์ ⚠️");
       return;
     }
 
@@ -81,14 +82,16 @@ const StockPage: React.FC = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ adjustments }),
       });
+
       const result = await res.json();
 
       if (result.ok) {
-        alert("ปรับ Stock เรียบร้อยแล้ว ✅");
+        toast.success("ปรับ Stock เรียบร้อยแล้ว");
 
         // ดึงข้อมูลใหม่ของยูนิฟอร์มทั้งหมด
         const resItems = await fetch("/api/stock/items");
         const dataItems = await resItems.json();
+
         if (dataItems.ok) {
           setItems(dataItems.data);
 
@@ -96,6 +99,7 @@ const StockPage: React.FC = () => {
           const updatedItem = dataItems.data.find(
             (i: ItemData) => i.item_id === selectedItem.item_id
           );
+
           if (updatedItem) {
             setSelectedItem({
               ...updatedItem,
@@ -105,13 +109,15 @@ const StockPage: React.FC = () => {
               })),
             });
           }
+        } else {
+          toast.error("โหลดข้อมูลยูนิฟอร์มล้มเหลว");
         }
       } else {
-        alert(result.error || "เกิดข้อผิดพลาด ❌");
+        toast.error(result.error || "เกิดข้อผิดพลาด ❌");
       }
     } catch (err) {
       console.error(err);
-      alert("เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว ❌");
+      toast.error("เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว");
     }
   };
 

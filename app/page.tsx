@@ -12,6 +12,7 @@ import {
   Space,
   Typography,
 } from "antd";
+import toast from "react-hot-toast";
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -37,8 +38,14 @@ const Page: React.FC = () => {
   const [selectedSize, setSelectedSize] = useState<{ [key: number]: number }>(
     {}
   );
+  const [isLocked, setIsLocked] = useState(false);
 
   const handleSearch = async () => {
+    if (!workId.trim()) {
+      toast.error("กรุณากรอกรหัสพนักงานก่อนค้นหา ⚠️");
+      return;
+    }
+
     setLoading(true);
     setEmployee([]);
     setUniforms([]);
@@ -51,29 +58,46 @@ const Page: React.FC = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ workId }),
       });
+
       const data = await res.json();
-      if (!res.ok) {
-        alert("ไม่พบพนักงานในฐานข้อมูล ❌");
+
+      if (!res.ok || !data.data) {
+        toast.error("ไม่พบพนักงานในฐานข้อมูล");
         return;
       }
+
       setEmployee([data.data]);
+      // toast.success(`พบพนักงาน ${data.data.htcpersonid} ✅`);
+      setIsLocked(true); // ✅ ล็อคช่องกรอกหลังค้นหาสำเร็จ
 
       const resUniforms = await fetch("/api/getUniforms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
+
       const uniformData = await resUniforms.json();
-      if (resUniforms.ok) {
+
+      if (resUniforms.ok && uniformData.data?.length > 0) {
         setUniforms(uniformData.data);
       } else {
-        alert("ไม่พบยูนิฟอร์ม ❌");
+        toast.error("ไม่พบรายการยูนิฟอร์ม");
       }
     } catch (err) {
       console.error(err);
-      alert("ไม่พบพนักงานในฐานข้อมูล ❌");
+      toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์ ❌");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClear = () => {
+    setWorkId("");
+    setEmployee([]);
+    setUniforms([]);
+    setSelectedUniforms([]);
+    setSelectedSize({});
+    setIsLocked(false); // ✅ ปลดล็อคช่องกรอกเมื่อกดล้าง
+    toast("เริ่มค้นหาใหม่ได้เลย 🔄");
   };
 
   const handleSelectUniform = (
@@ -106,12 +130,12 @@ const Page: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!employee[0]) {
-      alert("กรุณาค้นหาพนักงานก่อน ⚠️");
+      toast.error("กรุณาค้นหาพนักงานก่อน");
       return;
     }
 
     if (!selectedUniforms || selectedUniforms.length === 0) {
-      alert("กรุณาเลือกยูนิฟอร์มก่อน ⚠️");
+      toast.error("กรุณาเลือกยูนิฟอร์มก่อน");
       return;
     }
 
@@ -121,12 +145,11 @@ const Page: React.FC = () => {
     );
 
     if (totalSelected > 4) {
-      alert("ไม่สามารถเบิกเกิน 4 ชิ้นได้ ⚠️");
+      toast.error("ไม่สามารถเบิกเกิน 4 ชิ้นได้");
       return;
     }
 
     try {
-      // ✅ เช็คจำนวนเบิกวันนี้ก่อน
       const checkRes = await fetch("/api/checkTodayRequisition", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -136,21 +159,22 @@ const Page: React.FC = () => {
       const checkData = await checkRes.json();
 
       if (!checkRes.ok) {
-        alert(checkData.error || "ตรวจสอบยอดเบิกวันนี้ล้มเหลว ❌");
+        toast.error(checkData.error || "ตรวจสอบยอดเบิกวันนี้ล้มเหลว ❌");
         return;
       }
 
       if (checkData.total >= 4) {
-        alert(`พนักงาน ${employee[0].htcpersonid} เบิกครบ 4 ชิ้นแล้ววันนี้ ⚠️`);
+        toast("รหัสพนักงานนี้เบิกครบ 4 ชิ้นแล้ววันนี้", { icon: "⚠️" });
         return;
       }
 
       if (totalSelected + checkData.total > 4) {
-        alert(`เบิกเกิน 4 ชิ้นวันนี้ ❌ (เบิกไปแล้ว ${checkData.total} ชิ้น)`);
+        toast.error(
+          `เบิกเกิน 4 ชิ้นวันนี้ ❌ (เบิกไปแล้ว ${checkData.total} ชิ้น)`
+        );
         return;
       }
 
-      // ✅ ทำการเบิกตามปกติ
       const res = await fetch("/api/requisitionUniform", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -161,17 +185,18 @@ const Page: React.FC = () => {
       });
 
       const data = await res.json();
+
       if (res.ok) {
-        alert("บันทึกการเบิกสำเร็จ ✅");
+        toast.success("บันทึกการเบิกสำเร็จ ✅");
         setSelectedUniforms([]);
         setSelectedSize({});
         handleSearch();
       } else {
-        alert("บันทึกไม่สำเร็จ ❌");
+        toast.error("บันทึกไม่สำเร็จ");
       }
     } catch (err) {
       console.error(err);
-      alert("เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว ❌");
+      toast.error("เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว");
     }
   };
 
@@ -222,26 +247,18 @@ const Page: React.FC = () => {
                 placeholder="กรอกรหัสพนักงาน"
                 style={{ width: 220, borderRadius: 8 }}
                 onPressEnter={handleSearch}
+                disabled={isLocked} // ✅ ล็อคช่องกรอกเมื่อค้นหาแล้ว
               />
               <Button
                 type="primary"
                 onClick={handleSearch}
                 loading={loading}
                 style={{ borderRadius: 8 }}
+                disabled={isLocked}
               >
                 ค้นหา
               </Button>
-              <Button
-                danger
-                onClick={() => {
-                  setWorkId("");
-                  setEmployee([]);
-                  setUniforms([]);
-                  setSelectedUniforms([]);
-                  setSelectedSize({});
-                }}
-                style={{ borderRadius: 8 }}
-              >
+              <Button danger onClick={handleClear} style={{ borderRadius: 8 }}>
                 ล้าง
               </Button>
             </Space>

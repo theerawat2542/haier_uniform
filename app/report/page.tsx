@@ -21,6 +21,7 @@ import {
   SearchOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
+import toast from "react-hot-toast";
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -42,8 +43,8 @@ const ReportPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const handleSearch = async () => {
-    if (!dates) {
-      message.warning("กรุณาเลือกช่วงวันที่ ⚠️");
+    if (!dates || dates.length < 2) {
+      toast.error("กรุณาเลือกช่วงวันที่ ⚠️");
       return;
     }
 
@@ -51,6 +52,7 @@ const ReportPage: React.FC = () => {
     const endDate = dates[1].format("YYYY-MM-DD");
 
     setLoading(true);
+
     try {
       const res = await fetch("/api/report", {
         method: "POST",
@@ -60,18 +62,23 @@ const ReportPage: React.FC = () => {
 
       const result = await res.json();
 
-      if (res.ok) {
+      if (res.ok && result.data?.length > 0) {
         const tableData = result.data.map((row: any, index: number) => ({
           key: index,
           ...row,
         }));
+
         setData(tableData);
+        toast.success("ดึงข้อมูลสำเร็จ ✅");
+      } else if (res.ok && result.data?.length === 0) {
+        setData([]);
+        toast("ไม่พบข้อมูลในช่วงวันที่ที่เลือก", { icon: "⚠️" });
       } else {
-        alert(result.error || "เกิดข้อผิดพลาด");
+        toast.error(result.error || "เกิดข้อผิดพลาด ❌");
       }
     } catch (err) {
       console.error(err);
-      alert("เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว");
+      toast.error("เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว");
     } finally {
       setLoading(false);
     }
